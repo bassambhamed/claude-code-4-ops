@@ -1,0 +1,74 @@
+# Sécurité — contrôle bloquant à chaque Pull Request.
+#
+# Trois portes, dans l'ordre du risque :
+#   1) secrets dans l'historique du diff   (gitleaks)  -> BLOQUANT
+#   2) mauvaise configuration d'infra      (trivy config) -> BLOQUANT sur CRITICAL
+#   3) vulnérabilités des images           (trivy image)  -> BLOQUANT sur CRITICAL
+#
+# Contrairement au hook local (qui informe), ce job BLOQUE : en CI, il existe une
+# procédure d'équipe pour lever un blocage. Sur un poste, un blocage inexpliqué
+# pousse à désactiver le garde-fou.
+name: Security
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"        # contrôle hebdomadaire du dépôt entier
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  secrets:
+    name: Détection de secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # gitleaks a besoin de l'historique
+
+      - name: Scanner le dépôt
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  iac:
+    name: Configuration d'infrastructure (trivy config)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scanner k8s/, helm/ et terraform/
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: "1"        # échoue : une mauvaise configuration d'infra est bloquante
+          ignore-unfixed: true
+
+  images:
+    name: Vulnérabilités des images (trivy image)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [Catalog.Api, Ordering.Api, Gateway, Web]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construire l'image
+        run: |
+          docker build -t scan-target:${{ matrix.service }} \
+            -f src/ECommerce.${{ matrix.service }}/Dockerfile .
+
+      - name: Scanner l'image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: scan-target:${{ matrix.service }}
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true

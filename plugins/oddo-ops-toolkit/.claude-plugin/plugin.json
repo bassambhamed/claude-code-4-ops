@@ -1,0 +1,8 @@
+{
+  "name": "oddo-ops-toolkit",
+  "version": "1.0.0",
+  "description": "Boîte à outils Ops pour les équipes DevOps / SRE : provisionnement, conteneurisation, Kubernetes, IaC et diagnostic — avec des garde-fous déterministes (anti-secret, blocage des commandes destructives, journal d'audit).",
+  "author": { "name": "Formation Claude Code pour les Ops" },
+  "keywords": ["ops", "devops", "sre", "kubernetes", "terraform", "ansible", "docker", "securite"],
+  "license": "MIT"
+}

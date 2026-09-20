@@ -1,0 +1,82 @@
+# Règles d'alerte de l'ecommerce-app.
+#
+# Trois principes appliqués ici :
+#   1) chaque alerte a un `for:` réaliste — on n'alerte pas sur un pic de dix secondes ;
+#   2) chaque alerte a un `summary` ACTIONNABLE et un lien vers un runbook ;
+#   3) on n'alerte que sur ce qui appelle une action humaine. Le reste est un dashboard.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ecommerce-rules
+  namespace: monitoring
+  labels:
+    release: kps
+spec:
+  groups:
+    - name: ecommerce.slo
+      interval: 30s
+      rules:
+        # --- Erreurs : le signal le plus proche de l'expérience utilisateur ---
+        - alert: EcommerceHighErrorRate
+          expr: |
+            sum(rate(http_server_request_duration_seconds_count{namespace="ecommerce",http_response_status_code=~"5.."}[5m])) by (service)
+            /
+            sum(rate(http_server_request_duration_seconds_count{namespace="ecommerce"}[5m])) by (service)
+            > 0.05
+          for: 5m
+          labels: { severity: critical }
+          annotations:
+            summary: "{{ $labels.service }} : plus de 5 % de réponses 5xx depuis 5 min"
+            description: "Taux d'erreur actuel : {{ $value | humanizePercentage }}."
+            runbook_url: "https://interne/runbooks/ecommerce-error-rate"
+
+        # --- Latence : p95, pas la moyenne (la moyenne masque la queue de distribution) ---
+        - alert: EcommerceHighLatencyP95
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(http_server_request_duration_seconds_bucket{namespace="ecommerce"}[5m])) by (le, service)
+            ) > 0.3
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: "{{ $labels.service }} : latence p95 au-dessus de 300 ms depuis 10 min"
+            description: "p95 actuel : {{ $value }}s."
+            runbook_url: "https://interne/runbooks/ecommerce-latency"
+
+    - name: ecommerce.infra
+      interval: 30s
+      rules:
+        # --- Saturation mémoire : prévient l'OOMKill avant qu'il n'arrive ---
+        - alert: EcommercePodMemoryPressure
+          expr: |
+            sum(container_memory_working_set_bytes{namespace="ecommerce",container!=""}) by (pod)
+            /
+            sum(kube_pod_container_resource_limits{namespace="ecommerce",resource="memory"}) by (pod)
+            > 0.9
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: "{{ $labels.pod }} utilise plus de 90 % de sa limite mémoire"
+            description: "Un OOMKill est probable. Vérifier la limite ou chercher une fuite."
+            runbook_url: "https://interne/runbooks/ecommerce-oom"
+
+        # --- Redémarrages : `for: 15m` pour ne pas alerter sur un rollout normal ---
+        - alert: EcommercePodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="ecommerce"}[15m]) > 3
+          for: 15m
+          labels: { severity: critical }
+          annotations:
+            summary: "{{ $labels.pod }} a redémarré plus de 3 fois en 15 min"
+            description: "Utiliser le sous-agent k8s-debug-pod pour le diagnostic."
+            runbook_url: "https://interne/runbooks/ecommerce-crashloop"
+
+        # --- Disponibilité : aucun pod prêt = indisponibilité totale du service ---
+        - alert: EcommerceServiceDown
+          expr: |
+            sum(kube_deployment_status_replicas_available{namespace="ecommerce"}) by (deployment) == 0
+          for: 2m
+          labels: { severity: critical }
+          annotations:
+            summary: "{{ $labels.deployment }} n'a plus aucun pod disponible"
+            runbook_url: "https://interne/runbooks/ecommerce-service-down"

@@ -1,0 +1,61 @@
+# CD — Déploiement continu de l'ecommerce-app
+# Se déclenche APRÈS un CI réussi sur `main`. Deux étages :
+#   1) pré-prod : déploiement automatique.
+#   2) prod     : derrière un GATE MANUEL (environnement protégé) → un humain approuve.
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]        # doit correspondre au `name:` de ci.yml
+    types: [completed]
+    branches: [main]
+
+# Empêche deux déploiements concurrents de se marcher dessus.
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # Étage 1 — pré-prod : automatique, mais SEULEMENT si le CI a réussi.
+  # ----------------------------------------------------------------------------
+  deploy-preprod:
+    name: Déployer en pré-prod
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: preprod
+    steps:
+      - uses: actions/checkout@v4
+      - name: Déployer sur la pré-prod
+        run: |
+          echo "Déploiement vers la pré-prod… (commit ${{ github.event.workflow_run.head_sha }})"
+          # Exemple réel : helm upgrade --install ecommerce ./charts/ecommerce -f values-preprod.yaml
+          # Les identifiants viennent de GitHub Secrets, jamais en clair : ${{ secrets.KUBECONFIG_PREPROD }}
+
+  # ----------------------------------------------------------------------------
+  # Étage 2 — PRODUCTION : ne part QUE si la pré-prod a réussi ET qu'un humain
+  # a approuvé. L'approbation est imposée par l'environnement protégé `production`
+  # (voir la configuration à activer plus bas). Le repo étant PUBLIC, la règle
+  # "Required reviewers" est disponible gratuitement.
+  # ----------------------------------------------------------------------------
+  deploy-prod:
+    name: Déployer en production (gate manuel)
+    needs: deploy-preprod
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Déployer en PRODUCTION
+        run: |
+          echo "Déploiement PRODUCTION (après approbation humaine)…"
+          # helm upgrade --install ecommerce ./charts/ecommerce -f values-prod.yaml
+          # Secret : ${{ secrets.KUBECONFIG_PROD }}
+
+# ┌────────────────────────────────────────────────────────────────────────────┐
+# │ ACTIVER LE GATE D'APPROBATION (à faire UNE FOIS dans l'UI GitHub) :          │
+# │  Settings → Environments → New environment → "production"                     │
+# │   → cocher "Required reviewers" et s'ajouter (jusqu'à 6 relecteurs)           │
+# │   → (option) "Deployment branches" = main uniquement                         │
+# │  Idem possible pour "preprod" si on veut aussi un gate avant la pré-prod.     │
+# │  Dès lors, le job deploy-prod se met EN PAUSE et attend un clic "Approve".    │
+# └────────────────────────────────────────────────────────────────────────────┘

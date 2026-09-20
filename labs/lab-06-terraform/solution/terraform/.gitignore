@@ -1,0 +1,7 @@
+# Fichiers Terraform à NE JAMAIS committer
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+!*.tfvars.example

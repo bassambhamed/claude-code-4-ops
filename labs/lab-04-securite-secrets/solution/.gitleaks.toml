@@ -1,0 +1,30 @@
+# Configuration gitleaks — formation Claude Code pour les Ops.
+# Étend les règles par défaut et ajoute les motifs propres au projet.
+title = "ecommerce-app"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "dotnet-connectionstring"
+description = "Chaîne de connexion .NET contenant un mot de passe"
+regex = '''(?i)(server|data source)=[^;]+;.*password=[^;"'\s]+'''
+tags = ["dotnet", "database"]
+
+[[rules]]
+id = "aspire-token"
+description = "Jeton du dashboard Aspire"
+regex = '''(?i)aspire[_-]?dashboard[_-]?token\s*[:=]\s*['"]?[A-Za-z0-9+/=]{20,}'''
+tags = ["aspire"]
+
+[allowlist]
+description = "Faux positifs connus : exemples et documentation"
+paths = [
+  '''.*\.example$''',
+  '''docs/.*\.md$''',
+  '''labs/.*/README\.md$''',
+]
+regexes = [
+  '''EXAMPLEKEY''',
+  '''Sup3rS3cret!''',          # valeur volontaire des exercices de la formation
+]

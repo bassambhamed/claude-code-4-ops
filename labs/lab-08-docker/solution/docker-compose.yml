@@ -1,0 +1,52 @@
+# Compose DEV — lance les 4 microservices ensemble (sans Aspire).
+# La découverte de services Aspire (https+http://<nom>) est recâblée à la main via les
+# variables services__<nom>__http__0, en s'appuyant sur les NOMS de service compose
+# comme DNS interne (réseau compose par défaut). Tous écoutent sur 8080 dans leur conteneur.
+# ⚠️ Aucun secret en clair ici. Données en mémoire : tout est réinitialisé à chaque `up`.
+
+services:
+  catalog:
+    build:
+      context: . # contexte = racine du repo (les COPY du Dockerfile commencent par src/)
+      dockerfile: src/ECommerce.Catalog.Api/Dockerfile
+    image: ecommerce-catalog:latest
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+
+  ordering:
+    build:
+      context: .
+      dockerfile: src/ECommerce.Ordering.Api/Dockerfile
+    image: ecommerce-ordering:latest
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      services__catalog__http__0: http://catalog:8080 # ordering -> catalog (appel direct)
+    depends_on:
+      - catalog
+
+  gateway:
+    build:
+      context: .
+      dockerfile: src/ECommerce.Gateway/Dockerfile
+    image: ecommerce-gateway:latest
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      services__catalog__http__0: http://catalog:8080
+      services__ordering__http__0: http://ordering:8080
+    depends_on:
+      - catalog
+      - ordering
+    # Pas de port exposé : le gateway reste INTERNE (seul le frontend web est public).
+
+  web:
+    build:
+      context: .
+      dockerfile: src/ECommerce.Web/Dockerfile
+    image: ecommerce-web:latest
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      services__gateway__http__0: http://gateway:8080 # web -> gateway
+    depends_on:
+      - gateway
+    ports:
+      - "8080:8080" # frontend Blazor exposé sur http://localhost:8080 (seul service public)

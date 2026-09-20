@@ -1,0 +1,42 @@
+# kube-prometheus-stack — valeurs dimensionnées pour un cluster k3d de LAB.
+# Rétention courte, pas de persistance : un lab se recrée, il ne se sauvegarde pas.
+#
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm install kps prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace -f values-prometheus.yaml
+
+prometheus:
+  prometheusSpec:
+    retention: 6h
+    resources:
+      requests: { cpu: 100m, memory: 400Mi }
+      limits:   { cpu: 500m, memory: 1Gi }
+    storageSpec: {}                      # éphémère : aucun PVC sur un lab
+    # Découvre les ServiceMonitor de TOUS les namespaces, pas seulement ceux du chart.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+grafana:
+  adminPassword: ""                      # laissé vide : mot de passe généré, JAMAIS en clair ici
+  defaultDashboardsTimezone: Europe/Paris
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 200m, memory: 256Mi }
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard          # un ConfigMap portant ce label est importé automatiquement
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 25m, memory: 64Mi }
+      limits:   { cpu: 100m, memory: 128Mi }
+
+# Sur k3d, ces composants du plan de contrôle ne sont pas exposés : les désactiver
+# évite une dizaine d'alertes permanentes qui masqueraient les vraies.
+kubeControllerManager: { enabled: false }
+kubeScheduler:         { enabled: false }
+kubeProxy:             { enabled: false }
+kubeEtcd:              { enabled: false }

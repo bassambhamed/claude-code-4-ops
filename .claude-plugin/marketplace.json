@@ -1,0 +1,14 @@
+{
+  "name": "oddo-ops-marketplace",
+  "owner": { "name": "Formation Claude Code pour les Ops" },
+  "metadata": {
+    "description": "Marketplace interne de la formation : plugins Ops pour les équipes DevOps / SRE."
+  },
+  "plugins": [
+    {
+      "name": "oddo-ops-toolkit",
+      "source": "./plugins/oddo-ops-toolkit",
+      "description": "Boîte à outils Ops : provisionnement, conteneurisation, Kubernetes, IaC et diagnostic, avec garde-fous déterministes (anti-secret, blocage destructif, journal d'audit)."
+    }
+  ]
+}

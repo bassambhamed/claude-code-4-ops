@@ -1,0 +1,102 @@
+- name: Configurer la VM et déployer le service Catalog (.NET 10)
+  hosts: catalog
+  become: true # tâches d'install/déploiement en root (sudo)
+  vars:
+    dotnet_dir: /opt/dotnet
+    src_dir: /srv/src/ecommerce-app
+    app_dir: /srv/app/catalog
+    repo_url: https://github.com/bassambhamed/ecommerce-app.git # repo PUBLIC (pas d'auth)
+    repo_version: main
+    http_port: 8080
+
+  tasks:
+    - name: Paquets de base présents
+      apt: # idempotent : ne réinstalle pas si déjà là
+        name:
+          - git
+          - wget
+          - ca-certificates
+        state: present
+        update_cache: true
+
+    - name: Récupérer le script d'installation .NET
+      get_url:
+        url: https://dot.net/v1/dotnet-install.sh
+        dest: /tmp/dotnet-install.sh
+        mode: "0755"
+
+    - name: Installer le SDK .NET 10 (inclut le runtime)
+      command: "/tmp/dotnet-install.sh --channel 10.0 --install-dir {{ dotnet_dir }}"
+      args:
+        creates: "{{ dotnet_dir }}/dotnet" # idempotent : sauté si déjà installé (cas de notre VM)
+
+    - name: Lien symbolique dotnet dans le PATH
+      file:
+        src: "{{ dotnet_dir }}/dotnet"
+        dest: /usr/local/bin/dotnet
+        state: link
+
+    - name: Cloner / mettre à jour le code source
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ src_dir }}"
+        version: "{{ repo_version }}"
+        force: true
+      register: git_result
+
+    - name: Publier le service Catalog (Release)
+      # Rejoué uniquement si le code a changé -> idempotent (sauté si rien de neuf).
+      command: >
+        {{ dotnet_dir }}/dotnet publish
+        {{ src_dir }}/src/ECommerce.Catalog.Api/ECommerce.Catalog.Api.csproj
+        -c Release -o {{ app_dir }}
+      when: git_result.changed
+      notify: Redémarrer catalog
+
+    - name: Unité systemd du service Catalog
+      copy:
+        dest: /etc/systemd/system/catalog.service
+        content: |
+          [Unit]
+          Description=ECommerce Catalog API (.NET 10)
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=ubuntu
+          WorkingDirectory={{ app_dir }}
+          # /health n'est mappé qu'en Development (cf. ServiceDefaults)
+          Environment=ASPNETCORE_ENVIRONMENT=Development
+          Environment=ASPNETCORE_URLS=http://0.0.0.0:{{ http_port }}
+          ExecStart={{ dotnet_dir }}/dotnet {{ app_dir }}/ECommerce.Catalog.Api.dll
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Redémarrer catalog
+
+    - name: Activer et démarrer le service Catalog
+      systemd:
+        name: catalog
+        state: started
+        enabled: true
+        daemon_reload: true
+      when: not ansible_check_mode # en dry-run l'unité n'est pas réellement écrite
+
+    - name: Vérifier que /health répond (200)
+      uri:
+        url: "http://localhost:{{ http_port }}/health"
+        status_code: 200
+      register: health
+      retries: 10
+      delay: 3
+      until: health.status == 200
+      when: not ansible_check_mode # inutile en dry-run (le service n'est pas démarré)
+
+  handlers:
+    - name: Redémarrer catalog
+      systemd:
+        name: catalog
+        state: restarted
+        daemon_reload: true
+      when: not ansible_check_mode

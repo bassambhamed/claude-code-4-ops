@@ -1,0 +1,3 @@
+# Copier en terraform.tfvars puis adapter. NE PAS committer terraform.tfvars.
+image_name = "ecommerce-catalog:latest"
+host_port  = 8080

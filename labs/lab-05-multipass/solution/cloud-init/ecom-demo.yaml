@@ -1,0 +1,17 @@
+#cloud-config
+# Recette reproductible d'une VM Ubuntu prête à BUILDER et exécuter l'ecommerce-app (.NET 10).
+# Passée à : multipass launch --cloud-init cloud-init/ecom-demo.yaml
+# ⚠️ JAMAIS de secret en clair ici (mot de passe, token, clé privée) — clés SSH ou coffre uniquement.
+
+package_update: true                  # met à jour la liste des paquets au boot
+packages:                             # paquets installés automatiquement (apt)
+  - wget                              # pour télécharger le script d'install .NET
+  - ca-certificates                   # certificats racine (HTTPS)
+  - curl                              # pour vérifier l'endpoint /health depuis la VM
+
+runcmd:                               # commandes exécutées UNE FOIS, au premier démarrage
+  # Installe le SDK .NET 10 (inclut le runtime ASP.NET Core) dans /opt/dotnet,
+  # puis l'expose dans le PATH. Le SDK permet `dotnet build` / `dotnet run` / l'AppHost Aspire.
+  - wget https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh
+  - bash /tmp/dotnet-install.sh --channel 10.0 --install-dir /opt/dotnet
+  - ln -sf /opt/dotnet/dotnet /usr/local/bin/dotnet

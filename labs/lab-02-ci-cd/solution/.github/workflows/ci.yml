@@ -1,0 +1,81 @@
+# CI — Intégration continue de l'ecommerce-app (.NET 10)
+# Se déclenche à chaque push et chaque Pull Request sur `main` :
+#   1) build de la solution    2) build des images Docker + scan de sécurité Trivy.
+# Aucune étape ne déploie quoi que ce soit (ça, c'est le rôle de cd.yml).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # Job 1 : compiler la solution. C'est le filet de sécurité de base —
+  # si le code ne compile pas, rien d'autre ne doit avancer.
+  # ----------------------------------------------------------------------------
+  build:
+    name: Build (.NET 10, Release)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer le SDK .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restaurer les dépendances
+        run: dotnet restore ECommerce.slnx
+
+      - name: Compiler (Release)
+        run: dotnet build ECommerce.slnx --configuration Release --no-restore
+
+      - name: Tests
+        # ⚠️ Il n'y a PAS de projet de test dans la solution sur `main` (cf. CLAUDE.md).
+        # L'étape est laissée en place pour la chaîne CI : décommenter la ligne
+        # `dotnet test` le jour où un projet de test est ajouté à ECommerce.slnx.
+        run: echo "Aucun projet de test dans la solution — étape ignorée."
+        # run: dotnet test ECommerce.slnx --configuration Release --no-build --verbosity normal
+
+  # ----------------------------------------------------------------------------
+  # Job 2 : construire l'image de chaque service puis la scanner.
+  # Ne tourne que si `build` a réussi (needs). Le scan FAIT ÉCHOUER la CI
+  # si une faille CRITICAL/HIGH corrigeable est trouvée → garde-fou sécurité.
+  #
+  # Les Dockerfiles vivent dans le corrigé UC7 mais COPY le vrai code de `src/`
+  # avec le contexte de build = racine du repo (le `.` final).
+  # ----------------------------------------------------------------------------
+  image-scan:
+    name: Image + scan Trivy (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false       # on veut le rapport de TOUS les services, pas seulement le premier qui casse
+      matrix:
+        include:
+          - service: gateway
+            image: ecommerce-gateway
+            dockerfile: UC7/src/ECommerce.Gateway/Dockerfile
+          - service: ordering
+            image: ecommerce-ordering
+            dockerfile: UC7/src/ECommerce.Ordering.Api/Dockerfile
+          - service: web
+            image: ecommerce-web
+            dockerfile: UC7/src/ECommerce.Web/Dockerfile
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Construire l'image ${{ matrix.service }}
+        run: docker build -t ${{ matrix.image }}:${{ github.sha }} -f ${{ matrix.dockerfile }} .
+
+      - name: Scanner l'image (Trivy)
+        uses: aquasecurity/trivy-action@master   # à épingler sur un tag (ex. @0.28.0) pour la reproductibilité
+        with:
+          image-ref: ${{ matrix.image }}:${{ github.sha }}
+          severity: CRITICAL,HIGH       # ne s'intéresse qu'aux failles graves
+          ignore-unfixed: true          # ignore les failles sans correctif disponible (sinon CI rouge sans action possible)
+          exit-code: "1"                # échoue le job si une faille corrigeable est trouvée → bloque la chaîne
