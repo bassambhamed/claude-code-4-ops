@@ -16,10 +16,33 @@ GitHub.
 
 ## 2. Pré-requis
 
+**Installer la CLI GitHub (`gh`).** C'est l'outil en ligne de commande officiel de GitHub : l'agent
+s'en sert pour créer le dépôt distant et ouvrir la Pull Request. Vérifiez d'abord qu'elle n'est pas
+déjà là :
+
+```bash
+git --version        # Git est indispensable
+gh --version         # si « command not found » : installer gh ci-dessous
+```
+
+| Système | Installation |
+|---|---|
+| macOS | `brew install gh` |
+| Windows | `winget install --id GitHub.cli` (puis rouvrir le terminal) |
+| Ubuntu / Debian | Dépôt APT officiel : [cli.github.com — Linux](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) |
+
+> Sur un poste d'entreprise, `gh` peut devoir passer par le catalogue logiciel interne ou une demande
+> au support : anticipez-le **avant** la séance. Voir aussi [`docs/prerequis.md`](../../docs/prerequis.md).
+
+**Se connecter à GitHub avec `gh`.** Une seule fois par poste :
+
 ```bash
 gh auth login        # GitHub.com → HTTPS → navigateur
 gh auth status       # doit afficher un compte authentifié
 ```
+
+`gh auth login` ouvre le navigateur, vous saisissez le code à usage unique affiché dans le terminal,
+et `gh` conserve la session. Aucun token à copier-coller ici : celui de l'étape 7 est distinct.
 
 Travaillez sur votre copie :
 
@@ -170,17 +193,95 @@ Puis créez la branche et committez via le skill :
 
 Vérifiez sur GitHub : `gh pr view --web`.
 
-### Étape 7 — Brancher le MCP GitHub (5 min)
+### Étape 7 — Brancher le MCP GitHub (10 min)
+
+**Pourquoi.** Jusqu'ici, l'agent parlait à GitHub en lançant des commandes `gh` dans le shell. Le
+serveur MCP officiel de GitHub lui donne un accès **direct** à l'API : des outils natifs pour lister
+les PR, lire une issue, consulter le diff d'une PR ou l'état des Actions (voir le
+[module 06](../../modules/06-mcp/)). Ce serveur est **hébergé par GitHub** : rien à installer.
+
+**7.1 — Créer un token d'accès (sur github.com)**
+
+Le serveur MCP s'authentifie avec un *Personal Access Token* (PAT) que vous créez vous-même :
+
+1. Avatar en haut à droite → **Settings** → tout en bas à gauche : **Developer settings**.
+2. **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
+3. Renseignez :
+
+   | Champ | Valeur |
+   |---|---|
+   | Token name | `claude-lab-01` |
+   | Expiration | **7 jours** (la durée de la formation) |
+   | Repository access | *Only select repositories* → **le seul dépôt du lab** |
+   | Repository permissions | `Metadata`, `Contents`, `Pull requests`, `Issues`, `Actions` : **Read-only** |
+
+4. **Generate token**, puis copiez-le immédiatement : GitHub ne le réaffichera jamais. Un token
+   *fine-grained* commence par `github_pat_`.
+
+> **Pourquoi pas un token *classic* avec le scope `repo` ?** Il donnerait lecture **et écriture** sur
+> **tous** vos dépôts. Cette étape ne fait que lire : un seul dépôt, lecture seule, expiration courte.
+> C'est le principe du **moindre privilège**, attendu en contexte DORA.
+>
+> Si le dépôt appartient à une organisation avec SSO, cliquez aussi sur **Configure SSO** → *Authorize*
+> sur la page du token, sinon les appels seront refusés.
+
+**7.2 — Déclarer le serveur MCP (dans votre terminal)**
 
 ```bash
-export GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxx     # scope `repo`
+read -s GITHUB_PERSONAL_ACCESS_TOKEN     # collez le token puis Entrée : rien ne s'affiche,
+                                         # et il n'apparaît pas dans l'historique du shell
 claude mcp add --transport http github https://api.githubcopilot.com/mcp/ \
   -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN"
+unset GITHUB_PERSONAL_ACCESS_TOKEN
 ```
+
+Ligne par ligne :
+
+| Élément | Rôle |
+|---|---|
+| `claude mcp add ... github` | Déclare un serveur MCP nommé `github` |
+| `--transport http` + URL | Serveur distant, joint en HTTPS chez GitHub |
+| `-H "Authorization: Bearer ..."` | En-tête d'authentification envoyé à chaque appel |
+
+Deux conséquences à connaître :
+
+- **Le token est enregistré en clair** dans votre configuration Claude Code (`~/.claude.json`) : la
+  variable est remplacée par sa valeur au moment du `claude mcp add`. D'où l'expiration courte et la
+  révocation en fin de lab (7.4).
+- **Portée `local` par défaut** : le serveur n'existe que pour vous, dans ce projet. Il n'est **pas**
+  partagé avec l'équipe via `.mcp.json` — c'est voulu, puisqu'il contient votre token.
+
+**7.3 — Vérifier et utiliser**
+
 ```text
 > /mcp
+```
+
+Le serveur `github` doit apparaître comme **connected**. Sinon : token mal copié, dépôt non
+sélectionné à la création, ou autorisation SSO manquante.
+
+```text
 > Résume l'état des PR ouvertes sur ce dépôt et signale celles qui touchent à l'infrastructure.
 ```
+
+Vérifiez dans la sortie que l'agent appelle des outils `mcp__github__...` et non plus `gh`.
+
+Testez aussi le garde-fou :
+
+```text
+> Ajoute un commentaire « LGTM » sur la PR que tu viens d'ouvrir.
+```
+
+L'appel doit **échouer** : le token est en lecture seule. C'est la preuve que la limite est
+technique, pas seulement une consigne.
+
+**7.4 — En fin de lab : révoquer**
+
+```bash
+claude mcp remove github
+```
+
+Puis sur GitHub : **Settings → Developer settings → Fine-grained tokens → `claude-lab-01` → Delete**.
 
 ---
 
@@ -204,6 +305,8 @@ claude mcp add --transport http github https://api.githubcopilot.com/mcp/ \
 | Aucun push sans validation | Consigne explicite dans les skills | Étape 6 |
 | Aucun merge par l'agent | Interdit dans `open-pr/SKILL.md` | Revue du skill |
 | Pas de `--force` | Règle `deny` dans `/permissions` | `/permissions` |
+| MCP GitHub en lecture seule | Token *fine-grained* : un dépôt, `Read-only`, 7 jours | Étape 7.3 — écriture refusée |
+| Aucun token qui survit au lab | `claude mcp remove` + suppression du token sur GitHub | Étape 7.4 |
 
 > **Attention à la limite du hook de démo :** il détecte des motifs courants, pas tout. En production,
 > on branche `gitleaks` ou `trufflehog` — c'est l'objet du [Lab 04](../lab-04-securite-secrets/).
@@ -213,7 +316,7 @@ claude mcp add --transport http github https://api.githubcopilot.com/mcp/ \
 - Ajoutez un `PostToolUse` qui lance `gitleaks detect --staged` — détection bien plus robuste.
 - Créez `.github/pull_request_template.md` et faites-le remplir par le skill `open-pr`.
 - Ajoutez un skill `changelog` qui génère les notes de version depuis les Conventional Commits.
-- Testez `/review <numéro-de-PR>` sur la PR d'un collègue.
+- Testez `/code-review <numéro-de-PR>` sur la PR d'un collègue.
 
 ## Corrigé
 

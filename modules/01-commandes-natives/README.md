@@ -77,10 +77,9 @@ travers. Avec lui, votre précision est intégrée et le travail continue.
 | Commande | Ce qu'elle fait | Le réflexe Ops |
 |---|---|---|
 | `/context` | **Ce que l'agent a réellement en mémoire de travail**, et qui l'occupe | Dès qu'une réponse est incohérente |
-| `/todos` | La liste de tâches que l'agent s'est fixée | Sur une tâche longue, pour vérifier qu'il n'a rien lâché |
 | `/usage` | Coût de session et limites du plan | Pour chiffrer un usage d'équipe |
 | `/insights` | Statistiques d'usage et d'impact | Pour argumenter le déploiement auprès du management |
-| `/bashes` | Les commandes lancées en arrière-plan | Un `kubectl logs -f` qui tourne pendant qu'on travaille |
+| `/tasks` | Tout ce qui tourne en arrière-plan (commandes shell, sous-agents) : voir, arrêter | Un `kubectl logs -f` qui tourne pendant qu'on travaille |
 
 **`/context` est la commande de diagnostic n°1.** Une réponse qui part en vrille, c'est presque
 toujours un contexte saturé — pas un modèle « devenu bête ».
@@ -93,7 +92,6 @@ toujours un contexte saturé — pas un modèle « devenu bête ».
 | `/hooks` | Les hooks réellement actifs | Vérifier, ne jamais supposer |
 | `/security-review` | Analyse de sécurité des changements en cours | Avant chaque PR — et systématiquement sur de l'IaC |
 | `/code-review [--fix]` | Revue du diff : bugs, simplifications | Avant de pousser |
-| `/review [PR]` | Revue d'une pull request | Revue croisée d'un collègue |
 
 ### 3.6 Extensions — les briques des modules suivants
 

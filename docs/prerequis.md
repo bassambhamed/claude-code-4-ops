@@ -85,7 +85,7 @@ optionnel (Multipass, Terraform, Ansible) ne bloque pas la formation : les labs 
 | Accès | Pourquoi | Labs |
 |---|---|:---:|
 | Compte GitHub (perso ou org de test) | créer un repo, ouvrir des PR | 01, 02 |
-| `GITHUB_PERSONAL_ACCESS_TOKEN` (scope `repo`) | serveur MCP GitHub | 01, module 06 |
+| Token GitHub *fine-grained*, lecture seule (créé pendant le lab 01, étape 7) | serveur MCP GitHub | 01, module 06 |
 | Instance Grafana de démo (ou `grafana/grafana` en local) | serveur MCP Grafana | 10 |
 | Projet Jira de test *(optionnel)* | serveur MCP Atlassian | 11 |
 

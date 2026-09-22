@@ -59,7 +59,6 @@ La liste exacte des commandes de *votre* version s'obtient en tapant `/` dans un
 | `/clear` | Repart d'une conversation vide (la mémoire projet est conservée) |
 | `/resume` | Reprend une conversation précédente |
 | `/export` · `/rename` | Exporte / renomme la session |
-| `/todos` | Suit la liste de tâches de l'agent |
 
 ### Sécurité et garde-fous
 | Commande | Effet |
@@ -72,8 +71,7 @@ La liste exacte des commandes de *votre* version s'obtient en tapant `/` dans un
 | Commande | Effet |
 |---|---|
 | `/code-review [niveau] [--fix]` | Revue du diff : bugs, simplifications ; `--fix` applique |
-| `/review [PR]` | Revue d'une pull request dans la session |
-| `/ultrareview` | Revue approfondie multi-agents |
+| `/code-review ultra [PR]` | Revue approfondie multi-agents dans le cloud (branche courante ou PR) |
 
 ### Extensions
 | Commande | Effet |
@@ -91,7 +89,7 @@ La liste exacte des commandes de *votre* version s'obtient en tapant `/` dans un
 | `/workflows` | Orchestrations multi-agents | Revue d'un gros diff d'infra |
 | `/remote-control` | Piloter la session depuis un autre appareil | Suivre une migration depuis son téléphone |
 | `/teleport` | Reprendre le travail dans un autre environnement | Poste → VM de lab |
-| `/bashes` | Commandes shell lancées en arrière-plan | `kubectl logs -f` pendant qu'on travaille |
+| `/tasks` | Tout ce qui tourne en arrière-plan : voir, arrêter | `kubectl logs -f` pendant qu'on travaille |
 | `/fast` | Sortie accélérée (sur modèles compatibles) | Itérations courtes |
 
 ---

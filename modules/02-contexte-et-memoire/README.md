@@ -94,7 +94,7 @@ une fois est inscrite pour toute l'équipe.
 | Le contexte se remplit, la tâche continue | `/compact` | Résume, garde l'essentiel |
 | Nouveau sujet sans rapport | `/clear` | Repart à vide — `CLAUDE.md` reste chargé |
 | Vérifier ce qui occupe la place | `/context` | Grille détaillée par source |
-| Ouvrir un dépôt d'infra voisin | `/add-dir ../infra` | Élargit le périmètre |
+| Ouvrir un dépôt d'infra voisin | `/add-dir <chemin>` (ex. `/add-dir ../terraform-live`) | Élargit le périmètre au dossier indiqué |
 
 ---
 
