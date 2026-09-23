@@ -1,0 +1,21 @@
+#cloud-config
+# Base commune à toutes les VM : durcissement SSH, ACL, node_exporter avec textfile collector.
+package_update: true
+packages:
+  - acl
+  - prometheus-node-exporter
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-durcissement.conf
+    permissions: "0644"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PubkeyAuthentication yes
+      MaxAuthTries 3
+
+runcmd:
+  - install -d -m 755 /var/lib/prometheus/node-exporter
+  - systemctl restart ssh
+  - systemctl enable --now prometheus-node-exporter

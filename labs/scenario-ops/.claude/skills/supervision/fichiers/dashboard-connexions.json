@@ -1,0 +1,64 @@
+{
+  "uid": "connexions",
+  "title": "Connexions",
+  "schemaVersion": 39,
+  "time": { "from": "now-24h", "to": "now" },
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Connexions SSH acceptées (1 h glissante)",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "ssh_connexions_acceptees_1h{vm=~\"vm1|vm2\"}", "legendFormat": "{{vm}}" }]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Tentatives SSH refusées (1 h glissante)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 5 },
+              { "color": "red", "value": 20 }
+            ]
+          },
+          "custom": { "thresholdsStyle": { "mode": "line" } }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "ssh_connexions_refusees_1h{vm=~\"vm1|vm2\"}", "legendFormat": "{{vm}}" }]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Connexions actives à PostgreSQL",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(pg_stat_database_numbackends{datname=\"projet\"})", "legendFormat": "projet" }]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "État des VM et de la base",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "injoignable", "color": "red" }, "1": { "text": "OK", "color": "green" } } }
+          ]
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "up{job=\"node\"}", "legendFormat": "{{vm}}" },
+        { "refId": "B", "expr": "pg_up", "legendFormat": "postgres" }
+      ]
+    }
+  ]
+}

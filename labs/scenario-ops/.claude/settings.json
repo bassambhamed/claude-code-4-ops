@@ -1,0 +1,77 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(multipass list)",
+      "Bash(multipass list *)",
+      "Bash(multipass info *)",
+      "Bash(multipass exec * -- journalctl *)",
+      "Bash(multipass exec * -- getfacl *)",
+      "Bash(multipass exec * -- pg_isready)",
+      "Bash(multipass exec * -- pg_isready *)",
+      "Bash(bash .claude/skills/acces-ssh/scripts/test-acces.sh *)",
+      "Bash(bash .claude/skills/gestion-permissions/scripts/audit-droits.sh *)",
+      "Bash(curl -s http://*:9090/api/v1/*)",
+      "Read(./rapports/**)",
+      "Write(./rapports/**)",
+      "mcp__prometheus",
+      "mcp__postgres"
+    ],
+    "ask": [
+      "Bash(multipass launch *)",
+      "Bash(multipass delete *)",
+      "Bash(multipass stop *)",
+      "mcp__grafana"
+    ],
+    "deny": [
+      "Bash(multipass purge)",
+      "Bash(multipass purge *)",
+      "Bash(multipass delete --purge *)",
+      "Bash(multipass delete -p *)",
+      "Read(~/.ssh/**)",
+      "Read(./.env)",
+      "Edit(./journal/**)",
+      "Write(./journal/**)"
+    ]
+  },
+  "enableAllProjectMcpServers": false,
+  "enabledMcpjsonServers": ["prometheus", "postgres", "grafana"],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/garde-fou.sh", "timeout": 10 }
+        ]
+      },
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/anti-secret.sh", "timeout": 10 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|mcp__.*",
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/audit.sh", "timeout": 10 }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash|Write|Edit|mcp__.*",
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/audit.sh", "timeout": 10 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verification-finale.sh", "timeout": 15 }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+groups:
+  - name: connexions
+    rules:
+      # Scénario : au moins 5 échecs SSH depuis une même source en une heure.
+      - alert: EchecsSshASurveiller
+        expr: ssh_refus_par_source_1h >= 5 unless on(vm) ssh_connexions_refusees_1h >= 20
+        labels: { severite: a-surveiller }
+        annotations:
+          resume: "{{ $labels.vm }} : {{ $value }} tentatives SSH refusées en 1 h depuis {{ $labels.source }}"
+
+      - alert: EchecsSshCritique
+        expr: ssh_connexions_refusees_1h >= 20
+        labels: { severite: critique }
+        annotations:
+          resume: "{{ $labels.vm }} : {{ $value }} tentatives SSH refusées en 1 h"
+
+      - alert: VmInjoignable
+        expr: up{job="node"} == 0
+        for: 2m
+        labels: { severite: critique }
+        annotations:
+          resume: "{{ $labels.vm }} ne répond plus"
+
+      - alert: PostgresInjoignable
+        expr: pg_up == 0 or up{job="postgres"} == 0
+        for: 2m
+        labels: { severite: critique }
+        annotations:
+          resume: "PostgreSQL injoignable sur {{ $labels.vm }}"
